@@ -2,8 +2,6 @@ import argparse
 import os
 import sys
 
-import torch
-
 from utils.config import (
     DEFAULT_INPUT_DIR,
     DEFAULT_MODEL_PATH,
@@ -11,6 +9,7 @@ from utils.config import (
     DEFAULT_SSL_PATH,
 )
 from utils.dataset import collect_audio_files
+from utils.device import resolve_device
 
 
 def validate_paths(input_dir, model_path, ssl_path):
@@ -91,7 +90,7 @@ def main():
     from utils.loader import load_model
     from utils.predictor import InferenceEngine
 
-    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
+    device = resolve_device(args.device)
     print(f"Device: {device}")
 
     print(f"Loading model from {args.model_path}")
