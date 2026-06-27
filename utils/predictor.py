@@ -16,15 +16,26 @@ class InferenceEngine:
     def predict_batch(self, tensors):
         with torch.no_grad():
             batch_out = self.model(tensors)
-            scores = batch_out[:, 1].data.cpu().numpy().ravel()
-        return scores.tolist()
+            probs = torch.exp(batch_out)
+
+        prob_spoof = probs[:, 0].cpu().numpy().ravel()
+        prob_bonafide = probs[:, 1].cpu().numpy().ravel()
+        log_scores = batch_out[:, 1].cpu().numpy().ravel()
+
+        return [
+            {
+                "log_score": float(log_scores[i]),
+                "prob_spoof": float(prob_spoof[i]),
+                "prob_bonafide": float(prob_bonafide[i]),
+            }
+            for i in range(len(log_scores))
+        ]
 
     def predict_folder(
         self,
         input_dir,
         output_dir,
         batch_size=8,
-        threshold=None,
         write_json=True,
     ):
         audio_files = collect_audio_files(input_dir)
@@ -44,16 +55,11 @@ class InferenceEngine:
         with open(scores_path, "w") as scores_file:
             for batch_x, filenames in tqdm(data_loader, desc="Inferencing"):
                 batch_x = batch_x.to(self.device)
-                score_list = self.predict_batch(batch_x)
+                batch_results = self.predict_batch(batch_x)
 
-                for filename, score in zip(filenames, score_list):
-                    scores_file.write(f"{filename} {score}\n")
-                    entry = {"file": filename, "score": score}
-                    if threshold is not None:
-                        entry["label"] = (
-                            "bonafide" if score >= threshold else "spoof"
-                        )
-                    results.append(entry)
+                for filename, pred in zip(filenames, batch_results):
+                    scores_file.write(f"{filename} {pred['log_score']}\n")
+                    results.append({"file": filename, **pred})
 
         if write_json:
             with open(json_path, "w") as json_file:
@@ -66,8 +72,11 @@ class InferenceEngine:
         print(f"\nScores saved to {scores_path}")
         if json_path:
             print(f"Results saved to {json_path}")
-        print(f"\n{'File':<30} {'Score':>10} {'Label':>10}")
-        print("-" * 52)
+        print(f"\n{'File':<30} {'P(bonafide)':>12} {'P(spoof)':>12}")
+        print("-" * 56)
         for entry in results:
-            label = entry.get("label", "-")
-            print(f"{entry['file']:<30} {entry['score']:>10.4f} {label:>10}")
+            print(
+                f"{entry['file']:<30} "
+                f"{entry['prob_bonafide']:>12.4f} "
+                f"{entry['prob_spoof']:>12.4f}"
+            )

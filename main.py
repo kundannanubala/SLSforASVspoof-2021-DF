@@ -69,12 +69,6 @@ def parse_args():
         help="Compute device (default: cuda if available, else cpu)",
     )
     parser.add_argument(
-        "--threshold",
-        type=float,
-        default=None,
-        help="Optional score threshold for bonafide/spoof labels",
-    )
-    parser.add_argument(
         "--no_json",
         action="store_true",
         default=False,
@@ -101,7 +95,6 @@ def main():
         input_dir=args.input_dir,
         output_dir=args.output_dir,
         batch_size=args.batch_size,
-        threshold=args.threshold,
         write_json=not args.no_json,
     )
 
